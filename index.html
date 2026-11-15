@@ -121,7 +121,7 @@ function tick(){const b=S.p+"|"+S.t,now=Date.now();
 async function jf(u){for(let a=0;a<3;a++){const r=await fetch(u);if(r.status===429||r.status===503){await sleep(900*(a+1));continue}if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}throw new Error("limit")}
 const errMsg=e=>e.message==="limit"?"Wikipedia está limitando las peticiones. Espera unos segundos.":"No se pudo conectar con Wikipedia.";
 const TP={};
-async function top(L){if(TP[L])return TP[L];try{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);const j=await jf("https://wikimedia.org/api/rest_v1/metrics/pageviews/top/"+L+".wikipedia/all-access/"+d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0")+"/all-days");TP[L]=j.items[0].articles.map(a=>a.article).filter(t=>t.indexOf(":")<0&&!/^(Portada|Main_Page|P%C3%A0gina|Pàgina_principal)/.test(t)).slice(0,1000)}catch(e){if(e.message==="limit")throw e;TP[L]=[]}return TP[L]}
+async function topList(L){if(TP[L])return TP[L];try{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);const j=await jf("https://wikimedia.org/api/rest_v1/metrics/pageviews/top/"+L+".wikipedia/all-access/"+d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0")+"/all-days");TP[L]=j.items[0].articles.map(a=>a.article).filter(t=>t.indexOf(":")<0&&!/^(Portada|Main_Page|P%C3%A0gina|Pàgina_principal)/.test(t)).slice(0,1000)}catch(e){if(e.message==="limit")throw e;TP[L]=[]}return TP[L]}
 async function wd(q){if(!q)return{y:null,n:1,c:"Otros"};
  const e=(await jf("https://www.wikidata.org/w/api.php?action=wbgetentities&ids="+q+"&props=claims|sitelinks&format=json&origin=*")).entities[q],cl=e.claims||{};
  let y=null,c="Otros";
