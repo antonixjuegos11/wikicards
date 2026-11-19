@@ -118,34 +118,43 @@ function tick(){const b=S.p+"|"+S.t,now=Date.now();
  if(S.p>=MAX){S.p=MAX;S.t=now}else{const g=Math.floor((now-S.t)/MS);if(g>0){S.p=Math.min(MAX,S.p+g);S.t=S.p>=MAX?now:S.t+g*MS}}
  return b!==S.p+"|"+S.t}
 /* ---------- APIs de Wikimedia ---------- */
-async function jf(u){for(let a=0;a<3;a++){const r=await fetch(u);if(r.status===429||r.status===503){await sleep(900*(a+1));continue}if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}throw new Error("limit")}
-const errMsg=e=>e.message==="limit"?"Wikipedia está limitando las peticiones. Espera unos segundos.":"No se pudo conectar con Wikipedia.";
+async function jf(u){for(let a=0;a<2;a++){const r=await fetch(u,{signal:AbortSignal.timeout(12000)});if(r.status===429||r.status===503){await sleep(1500);continue}if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}throw new Error("limit")}
+const errMsg=e=>{const m=String(e.message);return m==="limit"?"Wikipedia está limitando las peticiones. Espera un par de minutos.":/Failed to fetch|NetworkError|Load failed/.test(m)?"Wikipedia no respondió: puede ser el límite de peticiones para navegadores, un bloqueador o falta de conexión. Espera un par de minutos.":"No se pudo obtener cartas ("+m.replace("fail:","").trim()+")."};
 const TP={};
-async function topList(L){if(TP[L])return TP[L];try{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);const j=await jf("https://wikimedia.org/api/rest_v1/metrics/pageviews/top/"+L+".wikipedia/all-access/"+d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0")+"/all-days");TP[L]=j.items[0].articles.map(a=>a.article).filter(t=>t.indexOf(":")<0&&!/^(Portada|Main_Page|P%C3%A0gina|Pàgina_principal)/.test(t)).slice(0,1000)}catch(e){if(e.message==="limit")throw e;TP[L]=[]}return TP[L]}
-async function wd(q){if(!q)return{y:null,n:1,c:"Otros"};
- const e=(await jf("https://www.wikidata.org/w/api.php?action=wbgetentities&ids="+q+"&props=claims|sitelinks&format=json&origin=*")).entities[q],cl=e.claims||{};
- let y=null,c="Otros";
+async function topList(L){if(TP[L])return TP[L];const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);const k="wc_top_"+L+"_"+d.getFullYear()+"_"+(d.getMonth()+1);
+ try{const c=JSON.parse(localStorage.getItem(k));if(c&&c.length)return TP[L]=c}catch(e){}
+ try{const j=await jf("https://wikimedia.org/api/rest_v1/metrics/pageviews/top/"+L+".wikipedia/all-access/"+d.getFullYear()+"/"+String(d.getMonth()+1).padStart(2,"0")+"/all-days");
+  TP[L]=j.items[0].articles.map(a=>a.article).filter(t=>t.indexOf(":")<0&&!/^(Portada|Main_Page|Pàgina_principal)/.test(t)).slice(0,1000);
+  try{localStorage.setItem(k,JSON.stringify(TP[L]))}catch(e){}
+ }catch(e){console.warn("Lista popular:",e);TP[L]=[]}
+ return TP[L]}
+function info(e){if(!e||(!e.claims&&!e.sitelinks))return{y:null,n:1,c:"Otros"};const cl=e.claims||{};let y=null,c="Otros";
  for(const p of YP){try{const m=/^([+-])(\d+)/.exec(cl[p][0].mainsnak.datavalue.value.time);if(m){const v=(m[1]==="-"?-1:1)*+m[2];if(v){y=v;break}}}catch(_){}}
  for(const s of cl.P31||[]){try{const k=CATS[s.mainsnak.datavalue.value.id];if(k){c=k;break}}catch(_){}}
- return{y,n:Object.keys(e.sitelinks||{}).length,c}}
-async function lic(s,L){ // licencia y autoría reales de la imagen (Commons o la propia Wikipedia)
- const src=(s.originalimage&&s.originalimage.source)||(s.thumbnail&&s.thumbnail.source);if(!src)return null;
- try{const f=decodeURIComponent(src.includes("/thumb/")?src.split("/thumb/")[1].split("/")[2]:src.split("/").pop());
-  const h=src.includes("/wikipedia/commons/")?"commons.wikimedia.org":L+".wikipedia.org";
+ return{y,n:Object.keys(e.sitelinks||{}).length||1,c}}
+async function lic(v,L){ // licencia y autoría reales de la imagen; se consulta al abrir el detalle de la carta
+ if(!v.i)return null;
+ try{const f=v.f||decodeURIComponent(v.i.includes("/thumb/")?v.i.split("/thumb/")[1].split("/")[2]:v.i.split("/").pop());
+  const h=v.i.includes("/wikipedia/commons/")?"commons.wikimedia.org":L+".wikipedia.org";
   const j=await jf("https://"+h+"/w/api.php?action=query&titles="+encodeURIComponent("File:"+f)+"&prop=imageinfo&iiprop=extmetadata&format=json&origin=*");
   const m=Object.values(j.query.pages)[0].imageinfo[0].extmetadata,g=k=>m[k]&&m[k].value?m[k].value:"";
   const art=new DOMParser().parseFromString(g("Artist"),"text/html").body.textContent.trim();
-  return{f,name:g("LicenseShortName"),url:g("LicenseUrl"),artist:art,page:"https://"+h+"/wiki/File:"+encodeURIComponent(f.replace(/ /g,"_"))}
+  return{f:f.replace(/_/g," "),name:g("LicenseShortName"),url:g("LicenseUrl"),artist:art,page:"https://"+h+"/wiki/File:"+encodeURIComponent(f.replace(/ /g,"_"))}
  }catch(e){return null}}
-async function draw(L){const pool=await top(L);
- for(let k=0;k<8;k++){try{
-  const tp=pool.length&&Math.random()<.35;
-  const s=await jf("https://"+L+".wikipedia.org/api/rest_v1/page/"+(tp?"summary/"+encodeURIComponent(decodeURIComponent(pool[Math.random()*pool.length|0])):"random/summary"));
-  if(s.type!=="standard"||!s.extract)continue;
-  const [w,li]=await Promise.all([wd(s.wikibase_item),lic(s,L)]);
-  return{id:s.wikibase_item||"p:"+L+":"+s.title,q:s.wikibase_item||null,cat:w.c,n:w.n,y:w.y,cnt:1,ts:Date.now(),v:{[L]:{t:s.title,d:s.description||"",x:s.extract,u:s.content_urls.desktop.page,i:s.thumbnail?s.thumbnail.source:"",lic:li}}}
- }catch(e){if(e.message==="limit")throw e}}
- throw new Error("fail")}
+// Un sobre = 3 consultas como máximo (artículos populares, aleatorios y Wikidata en lote)
+const QS="&prop=pageprops|pageimages|extracts|description|info&ppprop=wikibase_item|disambiguation&piprop=thumbnail|name&pithumbsize=320&exintro=1&explaintext=1&exsentences=3&exlimit=max&inprop=url&format=json&origin=*";
+async function pages(L,sel){const j=await jf("https://"+L+".wikipedia.org/w/api.php?action=query&redirects=1"+sel+QS);
+ return Object.values((j.query&&j.query.pages)||{}).filter(p=>p.extract&&p.fullurl&&p.pageprops&&p.pageprops.wikibase_item&&!("disambiguation" in p.pageprops))}
+async function drawPack(L){const pool=await topList(L),got=[],seen=new Set();
+ for(let r=0;r<3&&got.length<5;r++){const need=5-got.length,nt=pool.length?Math.round(need*.35):0,tit=[];
+  while(tit.length<nt)tit.push(pool[Math.random()*pool.length|0]);
+  const dec=t=>{try{return decodeURIComponent(t)}catch(e){return t}};
+  const [a,b]=await Promise.all([nt?pages(L,"&titles="+encodeURIComponent(tit.map(dec).join("|"))):[],need-nt?pages(L,"&generator=random&grnnamespace=0&grnlimit="+(need-nt+3)):[]]);
+  for(const p of [...a,...b]){const q=p.pageprops.wikibase_item;if(!seen.has(q)&&got.length<5){seen.add(q);got.push(p)}}}
+ if(got.length<5)throw new Error("fail: no se obtuvieron suficientes artículos");
+ let ents={};
+ try{ents=(await jf("https://www.wikidata.org/w/api.php?action=wbgetentities&ids="+got.map(p=>p.pageprops.wikibase_item).join("|")+"&props=claims|sitelinks&format=json&origin=*")).entities||{}}catch(e){if(e.message==="limit")throw e;console.warn("Wikidata:",e)}
+ return got.map(p=>{const q=p.pageprops.wikibase_item,w=info(ents[q]);return{id:q,q,cat:w.c,n:w.n,y:w.y,cnt:1,ts:Date.now(),v:{[L]:{t:p.title,d:p.description||"",x:p.extract,u:p.fullurl,i:p.thumbnail?p.thumbnail.source:"",f:p.pageimage||"",lic:null}}}})}
 // Una carta = un concepto (QID). Otros idiomas del mismo QID se añaden como versión, no como carta nueva.
 function add(c){const L=Object.keys(c.v)[0],lg="p:"+L+":"+c.v[L].t;
  if(c.q&&S.own[lg]&&!S.own[c.id]){const o=S.own[lg];delete S.own[lg];Object.assign(o,{id:c.id,q:c.q,cat:c.cat,y:c.y,n:c.n});S.own[c.id]=o}
@@ -160,20 +169,23 @@ const img=u=>`<img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-refe
 function cardH(c,o){o=o||{};const r=rar(c.n),rc=RAR[r],[l,v]=ver(c,o.l||S.lang);
  return `<div class="card${r===6?" god":""}" style="--rc:${rc[1]}" data-a="det" data-id="${esc(c.id)}">${o.x||""}<div class="art">${v.i?img(v.i):"📖"}</div><div class="hd"><b class="nm">${esc(v.t)}</b><span class="yr">${fy(c.y)} · ${c.cat}</span></div><div class="ds">${esc(cut(v.x,200))}</div><div class="rr"><span>${rc[0]}</span><span>${l.toUpperCase()} · 🌐${c.n}</span></div></div>`}
 const lockH=s=>`<div class="card lock"><div class="art">${s.i?img(s.i):"❓"}</div><div class="hd"><b class="nm">${esc(s.t)}</b><span class="yr">Pendiente · ${s.L.toUpperCase()}</span></div><div class="ds">Marcada desde la enciclopedia. Aún no la has obtenido en un sobre.</div><div class="rr"><span>Sin obtener</span><span>—</span></div></div>`;
+const LT=new Map();let shown="";
 function det(id){const c=S.own[id];if(!c)return;const rc=RAR[rar(c.n)],[l,v]=ver(c,S.lang),li=v.lic,a=t=>`target="_blank" rel="noopener"`;
- const im=li?`Imagen: <a href="${esc(li.page)}" ${a()}>${esc(li.f)}</a>${li.artist?" · "+esc(li.artist):""} · ${li.name?(li.url?`<a href="${esc(li.url)}" ${a()}>${esc(li.name)}</a>`:esc(li.name)):"licencia no indicada"}`:v.i?"Imagen: licencia no disponible; consulta la página de la imagen en Wikipedia.":"Sin imagen.";
+ const im=li?`Imagen: <a href="${esc(li.page)}" ${a()}>${esc(li.f)}</a>${li.artist?" · "+esc(li.artist):""} · ${li.name?(li.url?`<a href="${esc(li.url)}" ${a()}>${esc(li.name)}</a>`:esc(li.name)):"licencia no indicada"}`:v.i?(LT.get(id+l)===2?"Imagen: licencia no disponible; consulta la página de la imagen en Wikipedia.":"Imagen: comprobando licencia…"):"Sin imagen.";
  $("mb").innerHTML=`<div class="dcard" style="--rc:${rc[1]}">${v.i?img(v.i):""}<div class="dbody"><span class="tag" style="background:${rc[1]};color:#fff">${rc[0]}</span><h2>${esc(v.t)}</h2><p class="mu">${esc(v.d)}</p><p>${esc(v.x)}</p><p class="mu sm">${fy(c.y)} · ${c.cat} · ${c.n} idiomas · ×${c.cnt}</p><p>${Object.keys(c.v).map(k=>`<a class="chip2" href="${esc(c.v[k].u)}" ${a()}>${k.toUpperCase()}: ${esc(c.v[k].t)} ↗</a>`).join("")}</p><p class="mu sm">${c.q?`Wikidata: <a href="https://www.wikidata.org/wiki/${c.q}" ${a()}>${c.q}</a>`:"Sin identificador de Wikidata (carta antigua)."}</p><p class="mu sm">Texto: Wikipedia, <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" ${a()}>CC BY-SA 4.0</a>.<br>${im}</p></div></div>`;
- $("md").classList.add("show")}
+ $("md").classList.add("show");shown=id;const key=id+l;
+ if(v.i&&!v.lic&&!LT.has(key)){LT.set(key,1);lic(v,l).then(li=>{if(li){v.lic=li;save()}else LT.set(key,2);if(shown===id&&$("md").classList.contains("show"))det(id)})}}
 /* ---------- Sobres ---------- */
 let busy=false;
-async function openPack(){tick();if(S.p<1||busy)return;busy=true;ui();const L=S.lang;
+let coolUntil=0;
+async function openPack(){tick();if(S.p<1||busy)return;if(Date.now()<coolUntil){toast("Espera "+Math.ceil((coolUntil-Date.now())/1000)+" s antes de reintentar (límite de peticiones de Wikipedia).");return}busy=true;ui();const L=S.lang;
  $("row").innerHTML="";$("ld").textContent="Abriendo sobre…";$("ld").style.display="block";$("ovb").style.display="none";$("ov").classList.add("show");
- try{const cs=await Promise.all([0,1,2,3,4].map(i=>sleep(i*160).then(()=>draw(L))));
+ try{const cs=await drawPack(L);
   if(S.p>=MAX)S.t=Date.now();S.p--;
   $("row").innerHTML=cs.map(c=>{const nw=add(c),o=S.own[c.id];return `<div class="flip"><div><div class="b">🎴</div><div class="f">${cardH(o,{x:nw?'<span class="new">NUEVA</span>':'<span class="new dup">×'+o.cnt+'</span>'})}</div></div></div>`}).join("");
   save();$("ld").style.display="none";$("ovb").style.display="flex";
   document.querySelectorAll("#row .flip").forEach(f=>f.onclick=()=>f.classList.add("open"));
- }catch(e){$("ov").classList.remove("show");toast(errMsg(e)+" No se ha gastado ningún sobre.")}
+ }catch(e){console.error("Abrir sobre:",e);if(!/^fail/.test(e.message))coolUntil=Date.now()+45000;$("ov").classList.remove("show");toast(errMsg(e)+" No se ha gastado ningún sobre.")}
  busy=false;ui()}
 function ui(){if(tick())save();$("chip").textContent="🎴 "+S.p+"/"+MAX;const n=$("n");if(!n)return;
  n.textContent=S.p;$("bf").style.width=S.p/MAX*100+"%";$("open").disabled=S.p<1||busy;
@@ -219,7 +231,7 @@ function eList(){const el=$("el");if(!el)return;
  $("em").style.display=E.cont&&!E.busy?"inline-block":"none"}
 V.combate=()=>ph("⚔️","Combate","Duelos entre cartas con sus estadísticas.");
 V.tienda=()=>ph("🛒","Tienda","Sobres especiales y mejoras.");
-V.perfil=()=>{const L=Object.values(S.own);return `<h1>Perfil</h1><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("☆",Object.keys(S.seen).length,"Pendientes")}</div><h2>Ajustes</h2><div class="tools"><input id="pn" value="${esc(S.name)}" maxlength="30" placeholder="Tu nombre"><select id="pl">${opt(Object.entries(LANGS),S.lang)}</select></div><p class="mu sm">El idioma elige qué versión de Wikipedia se usa para sobres, enciclopedia y cartas. La interfaz está solo en español.</p><h2>Copia de seguridad</h2><div class="tools"><button class="btn" data-a="exp">Exportar JSON</button><button class="btn" data-a="imp">Importar JSON</button><button class="btn" data-a="rst" style="border-color:#a33">Borrar todo</button></div><p class="mu sm">El progreso se guarda solo en este navegador. Exporta una copia si quieres llevarlo a otro dispositivo.</p>`};
+V.perfil=()=>{const L=Object.values(S.own);return `<h1>Perfil</h1><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("☆",Object.keys(S.seen).length,"Pendientes")}</div><h2>Ajustes</h2><div class="tools"><input id="pn" value="${esc(S.name)}" maxlength="30" placeholder="Tu nombre"><select id="pl">${opt(Object.entries(LANGS),S.lang)}</select></div><p class="mu sm">El idioma elige qué versión de Wikipedia se usa para sobres, enciclopedia y cartas. La interfaz está solo en español.</p><h2>Copia de seguridad</h2><div class="tools"><button class="btn" data-a="test">Probar conexión</button><button class="btn" data-a="exp">Exportar JSON</button><button class="btn" data-a="imp">Importar JSON</button><button class="btn" data-a="rst" style="border-color:#a33">Borrar todo</button></div><p class="mu sm">El progreso se guarda solo en este navegador. Exporta una copia si quieres llevarlo a otro dispositivo.</p>`};
 A.perfil=()=>{$("pn").onchange=e=>{S.name=e.target.value.trim()||"Coleccionista";save()};$("pl").onchange=e=>setLang(e.target.value)};
 /* ---------- Navegación y eventos ---------- */
 function setLang(l){S.lang=l;save();$("lg").value=l;go()}
@@ -231,6 +243,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b
  else if(a==="more"){F.lim+=60;cgrid()}else if(a==="esrch")esearch(true);else if(a==="emore")esearch(false);
  else if(a==="pend"){const it=E.items[+b.dataset.i];if(S.seen[it.id])delete S.seen[it.id];else S.seen[it.id]={id:it.id,t:it.t,L:it.L,i:it.i,u:it.u};save();eList()}
  else if(a==="exp"){const l=document.createElement("a");l.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:"application/json"}));l.download="wikicartas-backup.json";l.click()}
+ else if(a==="test"){const t0=Date.now();fetch("https://"+S.lang+".wikipedia.org/w/api.php?action=query&meta=siteinfo&format=json&origin=*").then(r=>toast("Wikipedia respondió HTTP "+r.status+" en "+(Date.now()-t0)+" ms")).catch(e=>toast("Sin respuesta de Wikipedia: "+e.message))}
  else if(a==="imp")$("pf").click();
  else if(a==="rst"){if(confirm("¿Borrar toda tu colección y progreso? Exporta una copia antes.")){S={ver:2,p:MAX,t:Date.now(),own:{},seen:{},lang:S.lang,name:"Coleccionista"};save();go()}}});
 $("pf").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.own)throw 0;
