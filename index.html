@@ -15,10 +15,6 @@ h1,h2{font-family:var(--hf);letter-spacing:.5px;margin:.4em 0}
 h2{color:var(--gold2);font-size:20px;margin-top:28px}
 .top{position:sticky;top:0;z-index:5;background:rgba(5,9,20,.88);backdrop-filter:blur(10px);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;padding:10px 16px;flex-wrap:wrap}
 .logo{font-family:var(--hf);font-weight:800;font-size:20px;color:var(--gold);text-decoration:none;white-space:nowrap}
-nav{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none}
-nav a{color:var(--mu);text-decoration:none;padding:8px 12px;border-radius:10px;font-size:14px;white-space:nowrap;transition:.2s}
-nav a:hover{color:var(--tx);background:var(--nv2)}
-nav a.on{color:#1a1405;background:linear-gradient(135deg,var(--gold),var(--gold2));font-weight:700}
 .side{display:flex;gap:8px;align-items:center}
 .chip{background:var(--nv2);border:1px solid var(--bd);padding:6px 10px;border-radius:20px;font-size:13px;color:var(--gold2)}
 select,input{font:inherit;font-size:14px;background:var(--nv);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:9px 10px;min-width:0}
@@ -79,11 +75,29 @@ main{max-width:1100px;margin:0 auto;padding:18px 16px 40px;animation:in .35s}
 #toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,40px);background:var(--nv2);border:1px solid var(--gold);color:var(--tx);padding:12px 18px;border-radius:12px;opacity:0;transition:.3s;z-index:50;max-width:90%;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 footer{text-align:center;color:var(--mu);font-size:12px;padding:0 16px 30px}
+.top .side{margin-left:auto}
+.av{width:38px;height:38px;border-radius:50%;border:2px solid var(--gold);background:linear-gradient(135deg,#3b5bdb,#8b5cf6);color:#fff;font:700 16px var(--bf);cursor:pointer;padding:0}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;align-items:flex-end;background:rgba(5,9,20,.96);backdrop-filter:blur(12px);border-top:1px solid var(--bd);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+.bnav a,.bnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;color:var(--mu);font:500 11px var(--bf);text-decoration:none;padding:6px 2px;border-radius:12px;cursor:pointer;position:relative}
+.bnav span{font-size:20px;padding:2px 14px;border-radius:12px}
+.bnav .on{color:var(--gold2)}.bnav .on span{background:var(--nv2)}
+.bnav .ctr span{width:58px;height:58px;margin-top:-28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;background:linear-gradient(135deg,var(--gold),var(--gold2));box-shadow:0 6px 18px -4px var(--gold);border:3px solid var(--bg);padding:0}
+.bnav .bd2{position:absolute;top:-30px;left:calc(50% + 12px);background:#3b5bdb;color:#fff;font:700 11px var(--bf);min-width:20px;height:20px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.seg{display:flex;gap:4px;background:var(--nv);border:1px solid var(--bd);border-radius:16px;padding:5px;margin-bottom:16px}
+.seg button{flex:1;font:inherit;font-size:14px;background:none;border:0;color:var(--mu);padding:12px 6px;border-radius:12px;cursor:pointer}
+.seg button.on{background:var(--nv2);color:var(--tx);font-weight:700}
+.packv .btns{justify-content:center}.count small{font-size:20px;color:var(--mu)}
+.sheet{width:100%;max-width:560px;background:var(--nv);border:1px solid var(--bd);border-radius:22px;padding:20px}
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.sgrid .btn{padding:14px 4px;font-size:12px}
+#ov{justify-content:flex-start}#ov>:first-child{margin-top:auto}#ov>:last-child{margin-bottom:auto}
+.res{width:100%;max-width:1000px}
+footer{padding-bottom:120px}
 </style>
 </head>
 <body>
-<header class="top"><a class="logo" href="#inicio">📖 WikiCartas</a><nav id="nav"></nav><div class="side"><span class="chip" id="chip"></span><select id="lg" title="Idioma de Wikipedia"></select></div></header>
+<header class="top"><a class="logo" href="#jugar">📖 WikiCartas</a><div class="side"><span class="chip" id="chip"></span><select id="lg" title="Idioma de Wikipedia"></select><button class="av" id="av" data-a="avatar">C</button></div></header>
 <main id="app"></main>
+<nav class="bnav" id="nav"></nav>
 <div id="ov"><div id="ld"></div><div class="row" id="row"></div><div class="row" id="ovb"><button class="btn" id="all">Revelar todas</button><button class="btn gold" id="cl">Cerrar</button></div></div>
 <div id="md"><div id="mb"></div><button class="btn" id="mc">Cerrar</button></div>
 <div id="toast"></div>
@@ -96,7 +110,11 @@ const TH=[8,20,45,80,130,200]; // nº de idiomas del artículo para subir de rar
 const YP=["P571","P569","P577","P575","P580","P585","P574","P1319"];
 const CATS={Q5:"Personas",Q6256:"Lugares",Q515:"Lugares",Q486972:"Lugares",Q532:"Lugares",Q41176:"Lugares",Q16521:"Naturaleza",Q7432:"Naturaleza",Q11424:"Cultura",Q7725634:"Cultura",Q482994:"Cultura",Q134556:"Cultura",Q3305213:"Cultura",Q7889:"Cultura",Q5398426:"Cultura",Q4830453:"Organizaciones",Q783794:"Organizaciones",Q43229:"Organizaciones",Q12136:"Ciencia",Q11344:"Ciencia",Q11173:"Ciencia",Q634:"Ciencia",Q523:"Ciencia",Q318:"Ciencia"};
 const CL=["Personas","Lugares","Naturaleza","Cultura","Organizaciones","Ciencia","Otros"];
-const ROUTES=[["inicio","🏠","Inicio"],["sobres","🎴","Sobres"],["coleccion","🗂️","Colección"],["enciclopedia","📚","Enciclopedia"],["combate","⚔️","Combate"],["tienda","🛒","Tienda"],["perfil","👤","Perfil"]];
+const NV=[["tienda","🛍️","Tienda"],["coleccion","🗂️","Colección"],["jugar","🎴","Jugar"],["mercado","🏪","Mercado"]];
+const TAB={jugar:"sobres",coleccion:"cartas",mercado:"subastas"};
+const SUB={jugar:[["sobres","Sobres"],["juegos","Combate"],["eventos","Eventos"]],coleccion:[["cartas","Mis cartas"],["enciclopedia","Enciclopedia"],["perfil","Mi perfil"]],mercado:[["subastas","Subastas"],["intercambios","Intercambios"],["anuncios","Mis anuncios"]]};
+const OLD={inicio:["jugar"],sobres:["jugar","sobres"],combate:["jugar","juegos"],enciclopedia:["coleccion","enciclopedia"],perfil:["coleccion","perfil"]};
+let cur="jugar";
 const K2="wikicartas_v2",K1="wikicartas_live_v1",MAX=50,MS=3e5;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -145,15 +163,15 @@ async function lic(v,L){ // licencia y autoría reales de la imagen; se consulta
 const QS="&prop=pageprops|pageimages|extracts|description|info&ppprop=wikibase_item|disambiguation&piprop=thumbnail|name&pithumbsize=320&exintro=1&explaintext=1&exsentences=3&exlimit=max&inprop=url&format=json&origin=*";
 async function pages(L,sel){const j=await jf("https://"+L+".wikipedia.org/w/api.php?action=query&redirects=1"+sel+QS);
  return Object.values((j.query&&j.query.pages)||{}).filter(p=>p.extract&&p.fullurl&&p.pageprops&&p.pageprops.wikibase_item&&!("disambiguation" in p.pageprops))}
-async function drawPack(L){const pool=await topList(L),got=[],seen=new Set();
- for(let r=0;r<3&&got.length<5;r++){const need=5-got.length,nt=pool.length?Math.round(need*.35):0,tit=[];
+async function drawCards(L,n){const pool=await topList(L),got=[],seen=new Set(),dec=t=>{try{return decodeURIComponent(t)}catch(e){return t}};
+ for(let r=0;r<Math.ceil(n/5)+5&&got.length<n;r++){const need=Math.min(20,n-got.length),nt=pool.length?Math.round(need*.35):0,tit=[];
   while(tit.length<nt)tit.push(pool[Math.random()*pool.length|0]);
-  const dec=t=>{try{return decodeURIComponent(t)}catch(e){return t}};
-  const [a,b]=await Promise.all([nt?pages(L,"&titles="+encodeURIComponent(tit.map(dec).join("|"))):[],need-nt?pages(L,"&generator=random&grnnamespace=0&grnlimit="+(need-nt+3)):[]]);
-  for(const p of [...a,...b]){const q=p.pageprops.wikibase_item;if(!seen.has(q)&&got.length<5){seen.add(q);got.push(p)}}}
- if(got.length<5)throw new Error("fail: no se obtuvieron suficientes artículos");
- let ents={};
- try{ents=(await jf("https://www.wikidata.org/w/api.php?action=wbgetentities&ids="+got.map(p=>p.pageprops.wikibase_item).join("|")+"&props=claims|sitelinks&format=json&origin=*")).entities||{}}catch(e){if(e.message==="limit")throw e;console.warn("Wikidata:",e)}
+  const [a,b]=await Promise.all([nt?pages(L,"&titles="+encodeURIComponent(tit.map(dec).join("|"))):[],need-nt?pages(L,"&generator=random&grnnamespace=0&grnlimit="+Math.min(20,need-nt+3)):[]]);
+  for(const p of [...a,...b]){const q=p.pageprops.wikibase_item;if(!seen.has(q)&&got.length<n){seen.add(q);got.push(p)}}
+  if(got.length<n)await sleep(200)}
+ if(got.length<n)throw new Error("fail: no se obtuvieron suficientes artículos");
+ const ents={};
+ for(let i=0;i<got.length;i+=20){try{Object.assign(ents,(await jf("https://www.wikidata.org/w/api.php?action=wbgetentities&ids="+got.slice(i,i+20).map(p=>p.pageprops.wikibase_item).join("|")+"&props=claims|sitelinks&format=json&origin=*")).entities||{})}catch(e){if(e.message==="limit")throw e;console.warn("Wikidata:",e)}}
  return got.map(p=>{const q=p.pageprops.wikibase_item,w=info(ents[q]);return{id:q,q,cat:w.c,n:w.n,y:w.y,cnt:1,ts:Date.now(),v:{[L]:{t:p.title,d:p.description||"",x:p.extract,u:p.fullurl,i:p.thumbnail?p.thumbnail.source:"",f:p.pageimage||"",lic:null}}}})}
 // Una carta = un concepto (QID). Otros idiomas del mismo QID se añaden como versión, no como carta nueva.
 function add(c){const L=Object.keys(c.v)[0],lg="p:"+L+":"+c.v[L].t;
@@ -175,24 +193,33 @@ function det(id){const c=S.own[id];if(!c)return;const rc=RAR[rar(c.n)],[l,v]=ver
  $("mb").innerHTML=`<div class="dcard" style="--rc:${rc[1]}">${v.i?img(v.i):""}<div class="dbody"><span class="tag" style="background:${rc[1]};color:#fff">${rc[0]}</span><h2>${esc(v.t)}</h2><p class="mu">${esc(v.d)}</p><p>${esc(v.x)}</p><p class="mu sm">${fy(c.y)} · ${c.cat} · ${c.n} idiomas · ×${c.cnt}</p><p>${Object.keys(c.v).map(k=>`<a class="chip2" href="${esc(c.v[k].u)}" ${a()}>${k.toUpperCase()}: ${esc(c.v[k].t)} ↗</a>`).join("")}</p><p class="mu sm">${c.q?`Wikidata: <a href="https://www.wikidata.org/wiki/${c.q}" ${a()}>${c.q}</a>`:"Sin identificador de Wikidata (carta antigua)."}</p><p class="mu sm">Texto: Wikipedia, <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" ${a()}>CC BY-SA 4.0</a>.<br>${im}</p></div></div>`;
  $("md").classList.add("show");shown=id;const key=id+l;
  if(v.i&&!v.lic&&!LT.has(key)){LT.set(key,1);lic(v,l).then(li=>{if(li){v.lic=li;save()}else LT.set(key,2);if(shown===id&&$("md").classList.contains("show"))det(id)})}}
+const SOC=[["🌐","Chat global"],["💬","Mensajes"],["👥","Amigos"],["🛡️","Mi gremio"],["🔨","Subasta en directo"],["👑","Hall of fame"],["🏆","Clasificación"],["▦","Mi código QR"],["📷","Escanear QR"]];
+function social(){shown="";$("mb").innerHTML=`<div class="sheet"><h2 style="margin-top:0">Social</h2><p class="mu sm">Todo esto necesita servidor y cuentas de jugador. Todavía no está disponible.</p><div class="sgrid">${SOC.map(s=>`<button class="btn" data-a="soon" data-t="${s[1]}"><div style="font-size:26px">${s[0]}</div>${s[1]}</button>`).join("")}</div></div>`;$("md").classList.add("show")}
 /* ---------- Sobres ---------- */
 let busy=false;
 let coolUntil=0;
-async function openPack(){tick();if(S.p<1||busy)return;if(Date.now()<coolUntil){toast("Espera "+Math.ceil((coolUntil-Date.now())/1000)+" s antes de reintentar (límite de peticiones de Wikipedia).");return}busy=true;ui();const L=S.lang;
- $("row").innerHTML="";$("ld").textContent="Abriendo sobre…";$("ld").style.display="block";$("ovb").style.display="none";$("ov").classList.add("show");
- try{const cs=await drawPack(L);
-  if(S.p>=MAX)S.t=Date.now();S.p--;
-  $("row").innerHTML=cs.map(c=>{const nw=add(c),o=S.own[c.id];return `<div class="flip"><div><div class="b">🎴</div><div class="f">${cardH(o,{x:nw?'<span class="new">NUEVA</span>':'<span class="new dup">×'+o.cnt+'</span>'})}</div></div></div>`}).join("");
-  save();$("ld").style.display="none";$("ovb").style.display="flex";
-  document.querySelectorAll("#row .flip").forEach(f=>f.onclick=()=>f.classList.add("open"));
+async function openPack(k){tick();if(S.p<1||busy)return;
+ if(Date.now()<coolUntil){toast("Espera "+Math.ceil((coolUntil-Date.now())/1000)+" s antes de reintentar (límite de peticiones de Wikipedia).");return}
+ const np=Math.min(k===0?S.p:(k||1),S.p),L=S.lang;busy=true;ui();
+ $("row").innerHTML="";$("ld").textContent="Abriendo "+np+(np>1?" sobres… puede tardar unos segundos":" sobre…");$("ld").style.display="block";$("ovb").style.display="none";$("ov").classList.add("show");
+ try{const cs=await drawCards(L,np*5);
+  if(S.p>=MAX)S.t=Date.now();S.p-=np;
+  const rs=cs.map(c=>{const nw=add(c);return[S.own[c.id],nw]});
+  save();$("ld").style.display="none";$("ovb").style.display="flex";$("all").style.display=np===1?"":"none";
+  const bd=([o,nw])=>nw?'<span class="new">NUEVA</span>':'<span class="new dup">×'+o.cnt+'</span>';
+  if(np===1){$("row").innerHTML=rs.map(r=>`<div class="flip"><div><div class="b">🎴</div><div class="f">${cardH(r[0],{x:bd(r)})}</div></div></div>`).join("");
+   document.querySelectorAll("#row .flip").forEach(f=>f.onclick=()=>f.classList.add("open"))}
+  else{const nn=rs.filter(r=>r[1]).length,cnt=RAR.map((r,i)=>[r,rs.filter(x=>rar(x[0].n)===i).length]).filter(x=>x[1]);
+   rs.sort((a,b)=>rar(b[0].n)-rar(a[0].n)||b[1]-a[1]);
+   $("row").innerHTML=`<div class="res"><h2 style="text-align:center">${np} sobres · ${rs.length} cartas</h2><p class="c mu">${nn} nuevas · ${rs.length-nn} repetidas</p><p class="c">${cnt.map(x=>`<span class="tag" style="border-color:${x[0][1]}">${x[0][0]}: ${x[1]}</span>`).join(" ")}</p><div class="grid">${rs.map(r=>cardH(r[0],{x:bd(r)})).join("")}</div></div>`}
  }catch(e){console.error("Abrir sobre:",e);if(!/^fail/.test(e.message))coolUntil=Date.now()+45000;$("ov").classList.remove("show");toast(errMsg(e)+" No se ha gastado ningún sobre.")}
  busy=false;ui()}
-function ui(){if(tick())save();$("chip").textContent="🎴 "+S.p+"/"+MAX;const n=$("n");if(!n)return;
- n.textContent=S.p;$("bf").style.width=S.p/MAX*100+"%";$("open").disabled=S.p<1||busy;
+function ui(){if(tick())save();$("chip").textContent="🎴 "+S.p+"/"+MAX+" · 🗂️ "+Object.keys(S.own).length;const pb=$("pb");if(pb)pb.textContent=S.p;$("av").textContent=((S.name||"C")[0]||"C").toUpperCase();const n=$("n");if(!n)return;
+ n.textContent=S.p;$("bf").style.width=S.p/MAX*100+"%";$("open").disabled=S.p<1||busy;$("open10").disabled=S.p<10||busy;$("openall").disabled=S.p<2||busy;$("na").textContent=S.p;
  const s=Math.max(0,Math.ceil((S.t+MS-Date.now())/1000));
  $("nx").textContent=S.p>=MAX?"¡Sobres al máximo!":"Próximo sobre en "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
 /* ---------- Vistas ---------- */
-const V={},A={};
+const V={},A={},CO={},JG={},AC={};
 const st=(i,v,l)=>`<div class="stat"><span>${i}</span><b>${v}</b><small>${l}</small></div>`;
 const ph=(i,t,x)=>`<div class="ph"><span>${i}</span><h1>${t}</h1><p class="mu">${x}</p><p class="mu sm">Próxima implementación. Aún no está disponible.</p></div>`;
 V.inicio=()=>{const L=Object.values(S.own),cnt=L.reduce((a,c)=>a+c.cnt,0),best=L.length?RAR[Math.max(...L.map(c=>rar(c.n)))][0]:"—",
@@ -201,11 +228,13 @@ V.inicio=()=>{const L=Object.values(S.own),cnt=L.reduce((a,c)=>a+c.cnt,0),best=L
 <div class="stats">${st("🎴",S.p+" / "+MAX,"Sobres")}${st("🗂️",L.length,"Cartas distintas")}${st("📦",cnt,"Cartas totales")}${st("⭐",best,"Mejor rareza")}</div>
 <h2>Rarezas obtenidas</h2><div class="dist">${dist.map(d=>`<div><span>${d[0][0]}</span><i style="width:${d[1]/mx*100}%;background:${d[0][1]}"></i><b>${d[1]}</b></div>`).join("")}</div>
 <h2>Últimas cartas</h2>${rec.length?`<div class="grid">${rec.map(c=>cardH(c)).join("")}</div>`:`<p class="mu">Aún no tienes cartas.</p>`}`};
-V.sobres=()=>`<div class="packv"><div class="stack">🎴</div><div class="count"><span id="n">0</span> / ${MAX}</div><p class="mu">sobres disponibles · 5 cartas por sobre · idioma: ${LANGS[S.lang]}</p><div class="bar"><i id="bf"></i></div><p class="mu" id="nx"></p><button class="btn gold big" data-a="open" id="open">Abrir sobre</button><p class="mu sm">La rareza depende de en cuántos idiomas existe el artículo en Wikipedia.</p></div>`;
+const tabs=r=>`<div class="seg">${SUB[r].map(([k,l])=>`<button data-a="tab" data-k="${k}"${TAB[r]===k?' class="on"':""}>${l}</button>`).join("")}</div>`;
+JG.sobres=()=>{const L=Object.values(S.own),best=L.length?RAR[Math.max(...L.map(c=>rar(c.n)))][0]:"—";
+ return `<div class="packv"><div class="stack">🎴</div><div class="count"><span id="n">0</span><small> / ${MAX}</small></div><p class="mu">sobres disponibles · 5 cartas por sobre · ${LANGS[S.lang]}</p><div class="bar"><i id="bf"></i></div><p class="mu" id="nx"></p><div class="btns"><button class="btn gold big" data-a="open" data-n="1" id="open">Abrir</button><button class="btn big" data-a="open" data-n="10" id="open10">Abrir 10</button><button class="btn big" data-a="open" data-n="0" id="openall">Abrir todo (<span id="na">0</span>)</button></div><p class="mu sm">La rareza depende de en cuántos idiomas existe el artículo en Wikipedia. Abrir muchos sobres hace varias consultas a Wikipedia a la vez.</p></div><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("⭐",best,"Mejor rareza")}</div>`};
 const F={q:"",cat:"",rar:"",lang:"",st:"all",so:"r",lim:60};
 const opt=(a,cur)=>a.map(([k,v])=>`<option value="${k}"${cur===k?" selected":""}>${v}</option>`).join("");
-V.coleccion=()=>`<h1>Colección</h1><div class="tools"><input id="fq" placeholder="Buscar en tu colección…" value="${esc(F.q)}"><select id="fc">${opt([["","Categoría"],...CL.map(c=>[c,c])],F.cat)}</select><select id="fr">${opt([["","Rareza"],...RAR.map((r,i)=>[""+i,r[0]])],F.rar)}</select><select id="fl">${opt([["","Idioma"],...Object.entries(LANGS)],F.lang)}</select><select id="fs">${opt([["all","Todas"],["own","Obtenidas"],["pend","Pendientes (sin obtener)"]],F.st)}</select><select id="fo">${opt([["r","Orden: rareza"],["y","Orden: año"],["a","Orden: nombre"],["d","Orden: recientes"]],F.so)}</select></div><p class="mu sm" id="fp"></p><div class="grid" id="cg"></div><div class="c"><button class="btn" data-a="more" id="fm">Mostrar más</button></div>`;
-A.coleccion=()=>{[["fq","q"],["fc","cat"],["fr","rar"],["fl","lang"],["fs","st"],["fo","so"]].forEach(([i,k])=>$(i).oninput=e=>{F[k]=e.target.value;F.lim=60;cgrid()});cgrid()};
+CO.cartas=()=>`<h1>Colección</h1><div class="tools"><input id="fq" placeholder="Buscar en tu colección…" value="${esc(F.q)}"><select id="fc">${opt([["","Categoría"],...CL.map(c=>[c,c])],F.cat)}</select><select id="fr">${opt([["","Rareza"],...RAR.map((r,i)=>[""+i,r[0]])],F.rar)}</select><select id="fl">${opt([["","Idioma"],...Object.entries(LANGS)],F.lang)}</select><select id="fs">${opt([["all","Todas"],["own","Obtenidas"],["pend","Pendientes (sin obtener)"]],F.st)}</select><select id="fo">${opt([["r","Orden: rareza"],["y","Orden: año"],["a","Orden: nombre"],["d","Orden: recientes"]],F.so)}</select></div><p class="mu sm" id="fp"></p><div class="grid" id="cg"></div><div class="c"><button class="btn" data-a="more" id="fm">Mostrar más</button></div>`;
+AC.cartas=()=>{[["fq","q"],["fc","cat"],["fr","rar"],["fl","lang"],["fs","st"],["fo","so"]].forEach(([i,k])=>$(i).oninput=e=>{F[k]=e.target.value;F.lim=60;cgrid()});cgrid()};
 function cgrid(){let own=Object.values(S.own),pe=Object.values(S.seen);const q=F.q.toLowerCase();
  own=own.filter(c=>(!q||Object.values(c.v).some(v=>(v.t+" "+v.x).toLowerCase().includes(q)))&&(!F.cat||c.cat===F.cat)&&(F.rar===""||rar(c.n)===+F.rar)&&(!F.lang||c.v[F.lang]));
  pe=pe.filter(s=>!F.cat&&F.rar===""&&(!q||s.t.toLowerCase().includes(q))&&(!F.lang||s.L===F.lang));
@@ -217,8 +246,8 @@ function cgrid(){let own=Object.values(S.own),pe=Object.values(S.seen);const q=F
  $("cg").innerHTML=tot?all.slice(0,F.lim).join(""):'<p class="mu">No hay cartas con estos filtros.</p>';
  $("fm").style.display=tot>F.lim?"inline-block":"none"}
 const E={q:"",items:[],cont:null,busy:false,L:"es"};
-V.enciclopedia=()=>`<h1>Enciclopedia</h1><p class="mu">Búsqueda en vivo en Wikipedia (${LANGS[S.lang]}) con la API oficial. No es un catálogo descargado: se consulta cada vez. Marca artículos como pendientes para verlos en tu colección hasta que los obtengas en un sobre.</p><div class="tools"><input id="eq" placeholder="Buscar artículos…" value="${esc(E.q)}"><button class="btn gold" data-a="esrch">Buscar</button></div><p class="err" id="ee"></p><div id="el"></div><div class="c"><button class="btn" data-a="emore" id="em" style="display:none">Cargar más</button></div>`;
-A.enciclopedia=()=>{if(E.L!==S.lang){E.items=[];E.cont=null;E.L=S.lang}$("eq").onkeydown=e=>{if(e.key==="Enter")esearch(true)};eList()};
+CO.enciclopedia=()=>`<h1>Enciclopedia</h1><p class="mu">Búsqueda en vivo en Wikipedia (${LANGS[S.lang]}) con la API oficial. No es un catálogo descargado: se consulta cada vez. Marca artículos como pendientes para verlos en tu colección hasta que los obtengas en un sobre.</p><div class="tools"><input id="eq" placeholder="Buscar artículos…" value="${esc(E.q)}"><button class="btn gold" data-a="esrch">Buscar</button></div><p class="err" id="ee"></p><div id="el"></div><div class="c"><button class="btn" data-a="emore" id="em" style="display:none">Cargar más</button></div>`;
+AC.enciclopedia=()=>{if(E.L!==S.lang){E.items=[];E.cont=null;E.L=S.lang}$("eq").onkeydown=e=>{if(e.key==="Enter")esearch(true)};eList()};
 const ee=m=>{const x=$("ee");if(x)x.textContent=m};
 async function esearch(reset){if(E.busy)return;if(reset){E.q=$("eq").value.trim();E.items=[];E.cont=null}if(!E.q)return;E.busy=true;ee("Buscando…");
  try{const L=S.lang,j=await jf("https://"+L+".wikipedia.org/w/api.php?action=query&generator=search&gsrsearch="+encodeURIComponent(E.q)+"&gsrlimit=20&gsroffset="+(E.cont||0)+"&prop=pageprops|pageimages|extracts&ppprop=wikibase_item&piprop=thumbnail&pithumbsize=200&exintro=1&explaintext=1&exsentences=2&exlimit=max&format=json&origin=*");
@@ -230,16 +259,26 @@ function eList(){const el=$("el");if(!el)return;
  el.innerHTML=E.items.map((it,i)=>`<div class="row2"><div class="th">${it.i?img(it.i):"📖"}</div><div class="bd"><b>${esc(it.t)}</b> ${S.own[it.id]?'<span class="tag ok">Obtenida</span>':S.seen[it.id]?'<span class="tag">Pendiente</span>':""}<p>${esc(cut(it.x,220))}</p><a href="${esc(it.u)}" target="_blank" rel="noopener">Abrir en Wikipedia ↗</a> ${S.own[it.id]?"":`<button class="btn sm" data-a="pend" data-i="${i}">${S.seen[it.id]?"Quitar de pendientes":"☆ Marcar pendiente"}</button>`}</div></div>`).join("");
  $("em").style.display=E.cont&&!E.busy?"inline-block":"none"}
 V.combate=()=>ph("⚔️","Combate","Duelos entre cartas con sus estadísticas.");
-V.tienda=()=>ph("🛒","Tienda","Sobres especiales y mejoras.");
-V.perfil=()=>{const L=Object.values(S.own);return `<h1>Perfil</h1><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("☆",Object.keys(S.seen).length,"Pendientes")}</div><h2>Ajustes</h2><div class="tools"><input id="pn" value="${esc(S.name)}" maxlength="30" placeholder="Tu nombre"><select id="pl">${opt(Object.entries(LANGS),S.lang)}</select></div><p class="mu sm">El idioma elige qué versión de Wikipedia se usa para sobres, enciclopedia y cartas. La interfaz está solo en español.</p><h2>Copia de seguridad</h2><div class="tools"><button class="btn" data-a="test">Probar conexión</button><button class="btn" data-a="exp">Exportar JSON</button><button class="btn" data-a="imp">Importar JSON</button><button class="btn" data-a="rst" style="border-color:#a33">Borrar todo</button></div><p class="mu sm">El progreso se guarda solo en este navegador. Exporta una copia si quieres llevarlo a otro dispositivo.</p>`};
-A.perfil=()=>{$("pn").onchange=e=>{S.name=e.target.value.trim()||"Coleccionista";save()};$("pl").onchange=e=>setLang(e.target.value)};
+V.tienda=()=>ph("🛍️","Tienda","Sobres especiales y mejoras.");
+JG.juegos=V.combate;JG.eventos=()=>ph("🎉","Eventos","Eventos y temporadas.");
+V.jugar=()=>tabs("jugar")+JG[TAB.jugar]();
+V.coleccion=()=>tabs("coleccion")+CO[TAB.coleccion]();
+A.coleccion=()=>{const f=AC[TAB.coleccion];if(f)f()};
+V.mercado=()=>tabs("mercado")+ph("🏪",{subastas:"Subastas",intercambios:"Intercambios",anuncios:"Mis anuncios"}[TAB.mercado],"Compra, venta e intercambio de cartas entre jugadores. Necesita servidor y cuentas.");
+CO.perfil=()=>{const L=Object.values(S.own);return `<h1>Perfil</h1><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("☆",Object.keys(S.seen).length,"Pendientes")}</div><h2>Ajustes</h2><div class="tools"><input id="pn" value="${esc(S.name)}" maxlength="30" placeholder="Tu nombre"><select id="pl">${opt(Object.entries(LANGS),S.lang)}</select></div><p class="mu sm">El idioma elige qué versión de Wikipedia se usa para sobres, enciclopedia y cartas. La interfaz está solo en español.</p><h2>Copia de seguridad</h2><div class="tools"><button class="btn" data-a="test">Probar conexión</button><button class="btn" data-a="exp">Exportar JSON</button><button class="btn" data-a="imp">Importar JSON</button><button class="btn" data-a="rst" style="border-color:#a33">Borrar todo</button></div><p class="mu sm">El progreso se guarda solo en este navegador. Exporta una copia si quieres llevarlo a otro dispositivo.</p>`};
+AC.perfil=()=>{$("pn").onchange=e=>{S.name=e.target.value.trim()||"Coleccionista";save()};$("pl").onchange=e=>setLang(e.target.value)};
 /* ---------- Navegación y eventos ---------- */
 function setLang(l){S.lang=l;save();$("lg").value=l;go()}
-function go(){const h=location.hash.slice(1),k=ROUTES.some(r=>r[0]===h)?h:"inicio";
- $("nav").innerHTML=ROUTES.map(r=>`<a href="#${r[0]}"${r[0]===k?' class="on"':""}>${r[1]} ${r[2]}</a>`).join("");
+function go(){let h=location.hash.slice(1);
+ if(OLD[h]){const[r,t]=OLD[h];if(t)TAB[r]=t;h=r;try{history.replaceState(null,"","#"+r)}catch(e){}}
+ const k=NV.some(r=>r[0]===h)?h:"jugar";cur=k;
+ $("nav").innerHTML=NV.map(r=>`<a href="#${r[0]}" class="${r[0]===k?"on ":""}${r[0]==="jugar"?"ctr":""}"><span>${r[1]}</span>${r[2]}${r[0]==="jugar"?`<b class="bd2" id="pb">${S.p}</b>`:""}</a>`).join("")+`<button data-a="social"><span>👥</span>Social</button>`;
  $("app").innerHTML=V[k]();if(A[k])A[k]();ui();window.scrollTo(0,0)}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
- if(a==="det")det(b.dataset.id);else if(a==="open")openPack();
+ if(a==="det")det(b.dataset.id);else if(a==="open")openPack(+b.dataset.n);
+ else if(a==="tab"){TAB[cur]=b.dataset.k;go()}else if(a==="social")social();
+ else if(a==="soon")toast(b.dataset.t+": próxima implementación (necesita servidor y cuentas).");
+ else if(a==="avatar"){TAB.coleccion="perfil";if(location.hash==="#coleccion")go();else location.hash="#coleccion"}
  else if(a==="more"){F.lim+=60;cgrid()}else if(a==="esrch")esearch(true);else if(a==="emore")esearch(false);
  else if(a==="pend"){const it=E.items[+b.dataset.i];if(S.seen[it.id])delete S.seen[it.id];else S.seen[it.id]={id:it.id,t:it.t,L:it.L,i:it.i,u:it.u};save();eList()}
  else if(a==="exp"){const l=document.createElement("a");l.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:"application/json"}));l.download="wikicartas-backup.json";l.click()}
