@@ -125,12 +125,13 @@ function fy(y){if(y==null)return "Año desconocido";if(y<=-1e6){const a=-y;retur
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("show"),4000)}
 /* ---------- Guardado (con migración desde la v1, que no se borra) ---------- */
 function load(){
- try{const s=JSON.parse(localStorage.getItem(K2));if(s&&s.own){s.seen=s.seen||{};return s}}catch(e){}
- const n={ver:2,p:MAX,t:Date.now(),own:{},seen:{},lang:"es",name:"Coleccionista"};
+ try{const s=JSON.parse(localStorage.getItem(K2));if(s&&s.own){s.seen=s.seen||{};s.dirty=s.dirty||{};s.del=s.del||{};s.coins=s.coins||0;return s}}catch(e){}
+ const n={ver:2,p:MAX,t:Date.now(),own:{},seen:{},dirty:{},del:{},coins:0,lang:"es",name:"Coleccionista"};
  try{const o=JSON.parse(localStorage.getItem(K1));if(o&&o.own){n.p=o.p;n.t=o.t;for(const t in o.own){const c=o.own[t];n.own["p:es:"+t]={id:"p:es:"+t,q:null,cat:"Otros",n:c.n,y:c.y,cnt:c.c,ts:c.ts,v:{es:{t:c.t,d:c.d,x:c.x,u:c.u,i:c.i,lic:null}}}}}}catch(e){}
  return n}
 let S=load();
-function save(){try{localStorage.setItem(K2,JSON.stringify(S))}catch(e){toast("No se pudo guardar en este navegador")}}
+function saveLocal(){try{localStorage.setItem(K2,JSON.stringify(S))}catch(e){toast("No se pudo guardar en este navegador")}}
+function save(){saveLocal();cloudSoon()}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 function tick(){const b=S.p+"|"+S.t,now=Date.now();
  if(S.p>=MAX){S.p=MAX;S.t=now}else{const g=Math.floor((now-S.t)/MS);if(g>0){S.p=Math.min(MAX,S.p+g);S.t=S.p>=MAX?now:S.t+g*MS}}
@@ -174,13 +175,14 @@ async function drawCards(L,n){const pool=await topList(L),got=[],seen=new Set(),
  for(let i=0;i<got.length;i+=20){try{Object.assign(ents,(await jf("https://www.wikidata.org/w/api.php?action=wbgetentities&ids="+got.slice(i,i+20).map(p=>p.pageprops.wikibase_item).join("|")+"&props=claims|sitelinks&format=json&origin=*")).entities||{})}catch(e){if(e.message==="limit")throw e;console.warn("Wikidata:",e)}}
  return got.map(p=>{const q=p.pageprops.wikibase_item,w=info(ents[q]);return{id:q,q,cat:w.c,n:w.n,y:w.y,cnt:1,ts:Date.now(),v:{[L]:{t:p.title,d:p.description||"",x:p.extract,u:p.fullurl,i:p.thumbnail?p.thumbnail.source:"",f:p.pageimage||"",lic:null}}}})}
 // Una carta = un concepto (QID). Otros idiomas del mismo QID se añaden como versión, no como carta nueva.
-function add(c){const L=Object.keys(c.v)[0],lg="p:"+L+":"+c.v[L].t;
+function add0(c){const L=Object.keys(c.v)[0],lg="p:"+L+":"+c.v[L].t;
  if(c.q&&S.own[lg]&&!S.own[c.id]){const o=S.own[lg];delete S.own[lg];Object.assign(o,{id:c.id,q:c.q,cat:c.cat,y:c.y,n:c.n});S.own[c.id]=o}
  const o=S.own[c.id];delete S.seen[c.id];
  if(!o){S.own[c.id]=c;return true}
  o.cnt++;o.ts=c.ts;o.n=Math.max(o.n,c.n);
  if(!o.v[L])o.v[L]=c.v[L];else if(!o.v[L].lic&&c.v[L].lic)o.v[L].lic=c.v[L].lic;
  return false}
+function add(c){const r=add0(c),o=S.own[c.id];o.u=Date.now();S.dirty[c.id]=1;delete S.del[c.id];return r}
 /* ---------- Cartas ---------- */
 function ver(c,L){const l=c.v[L]?L:c.v[S.lang]?S.lang:Object.keys(c.v)[0];return[l,c.v[l]]}
 const img=u=>`<img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
@@ -190,9 +192,9 @@ const lockH=s=>`<div class="card lock"><div class="art">${s.i?img(s.i):"❓"}</d
 const LT=new Map();let shown="";
 function det(id){const c=S.own[id];if(!c)return;const rc=RAR[rar(c.n)],[l,v]=ver(c,S.lang),li=v.lic,a=t=>`target="_blank" rel="noopener"`;
  const im=li?`Imagen: <a href="${esc(li.page)}" ${a()}>${esc(li.f)}</a>${li.artist?" · "+esc(li.artist):""} · ${li.name?(li.url?`<a href="${esc(li.url)}" ${a()}>${esc(li.name)}</a>`:esc(li.name)):"licencia no indicada"}`:v.i?(LT.get(id+l)===2?"Imagen: licencia no disponible; consulta la página de la imagen en Wikipedia.":"Imagen: comprobando licencia…"):"Sin imagen.";
- $("mb").innerHTML=`<div class="dcard" style="--rc:${rc[1]}">${v.i?img(v.i):""}<div class="dbody"><span class="tag" style="background:${rc[1]};color:#fff">${rc[0]}</span><h2>${esc(v.t)}</h2><p class="mu">${esc(v.d)}</p><p>${esc(v.x)}</p><p class="mu sm">${fy(c.y)} · ${c.cat} · ${c.n} idiomas · ×${c.cnt}</p><p>${Object.keys(c.v).map(k=>`<a class="chip2" href="${esc(c.v[k].u)}" ${a()}>${k.toUpperCase()}: ${esc(c.v[k].t)} ↗</a>`).join("")}</p><p class="mu sm">${c.q?`Wikidata: <a href="https://www.wikidata.org/wiki/${c.q}" ${a()}>${c.q}</a>`:"Sin identificador de Wikidata (carta antigua)."}</p><p class="mu sm">Texto: Wikipedia, <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" ${a()}>CC BY-SA 4.0</a>.<br>${im}</p></div></div>`;
+ $("mb").innerHTML=`<div class="dcard" style="--rc:${rc[1]}">${v.i?img(v.i):""}<div class="dbody"><span class="tag" style="background:${rc[1]};color:#fff">${rc[0]}</span><h2>${esc(v.t)}</h2><p class="mu">${esc(v.d)}</p><p>${esc(v.x)}</p><p class="mu sm">${fy(c.y)} · ${c.cat} · ${c.n} idiomas · ×${c.cnt}</p><p>${Object.keys(c.v).map(k=>`<a class="chip2" href="${esc(c.v[k].u)}" ${a()}>${k.toUpperCase()}: ${esc(c.v[k].t)} ↗</a>`).join("")}</p><p class="mu sm">${c.q?`Wikidata: <a href="https://www.wikidata.org/wiki/${c.q}" ${a()}>${c.q}</a>`:"Sin identificador de Wikidata (carta antigua)."}</p><p class="mu sm">Texto: Wikipedia, <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.es" ${a()}>CC BY-SA 4.0</a>.<br>${im}</p><p><button class="btn sm" data-a="sell" data-id="${esc(c.id)}">🔨 Subastar (${PRECIO[rar(c.n)]} 🪙 de salida)</button></p></div></div>`;
  $("md").classList.add("show");shown=id;const key=id+l;
- if(v.i&&!v.lic&&!LT.has(key)){LT.set(key,1);lic(v,l).then(li=>{if(li){v.lic=li;save()}else LT.set(key,2);if(shown===id&&$("md").classList.contains("show"))det(id)})}}
+ if(v.i&&!v.lic&&!LT.has(key)){LT.set(key,1);lic(v,l).then(li=>{if(li){v.lic=li;c.u=Date.now();S.dirty[id]=1;save()}else LT.set(key,2);if(shown===id&&$("md").classList.contains("show"))det(id)})}}
 const SOC=[["🌐","Chat global"],["💬","Mensajes"],["👥","Amigos"],["🛡️","Mi gremio"],["🔨","Subasta en directo"],["👑","Hall of fame"],["🏆","Clasificación"],["▦","Mi código QR"],["📷","Escanear QR"]];
 function social(){shown="";$("mb").innerHTML=`<div class="sheet"><h2 style="margin-top:0">Social</h2><p class="mu sm">Todo esto necesita servidor y cuentas de jugador. Todavía no está disponible.</p><div class="sgrid">${SOC.map(s=>`<button class="btn" data-a="soon" data-t="${s[1]}"><div style="font-size:26px">${s[0]}</div>${s[1]}</button>`).join("")}</div></div>`;$("md").classList.add("show")}
 /* ---------- Sobres ---------- */
@@ -203,7 +205,7 @@ async function openPack(k){tick();if(S.p<1||busy)return;
  const np=Math.min(k===0?S.p:(k||1),S.p),L=S.lang;busy=true;ui();
  $("row").innerHTML="";$("ld").textContent="Abriendo "+np+(np>1?" sobres… puede tardar unos segundos":" sobre…");$("ld").style.display="block";$("ovb").style.display="none";$("ov").classList.add("show");
  try{const cs=await drawCards(L,np*5);
-  if(S.p>=MAX)S.t=Date.now();S.p-=np;
+  if(S.p>=MAX)S.t=Date.now();S.p-=np;S.coins+=np;
   const rs=cs.map(c=>{const nw=add(c);return[S.own[c.id],nw]});
   save();$("ld").style.display="none";$("ovb").style.display="flex";$("all").style.display=np===1?"":"none";
   const bd=([o,nw])=>nw?'<span class="new">NUEVA</span>':'<span class="new dup">×'+o.cnt+'</span>';
@@ -214,10 +216,76 @@ async function openPack(k){tick();if(S.p<1||busy)return;
    $("row").innerHTML=`<div class="res"><h2 style="text-align:center">${np} sobres · ${rs.length} cartas</h2><p class="c mu">${nn} nuevas · ${rs.length-nn} repetidas</p><p class="c">${cnt.map(x=>`<span class="tag" style="border-color:${x[0][1]}">${x[0][0]}: ${x[1]}</span>`).join(" ")}</p><div class="grid">${rs.map(r=>cardH(r[0],{x:bd(r)})).join("")}</div></div>`}
  }catch(e){console.error("Abrir sobre:",e);if(!/^fail/.test(e.message))coolUntil=Date.now()+45000;$("ov").classList.remove("show");toast(errMsg(e)+" No se ha gastado ningún sobre.")}
  busy=false;ui()}
-function ui(){if(tick())save();$("chip").textContent="🎴 "+S.p+"/"+MAX+" · 🗂️ "+Object.keys(S.own).length;const pb=$("pb");if(pb)pb.textContent=S.p;$("av").textContent=((S.name||"C")[0]||"C").toUpperCase();const n=$("n");if(!n)return;
+function ui(){if(tick())save();$("chip").textContent="🎴 "+S.p+"/"+MAX+" · 🪙 "+S.coins+(user?" · ☁️":"");const pb=$("pb");if(pb)pb.textContent=S.p;$("av").textContent=((S.name||"C")[0]||"C").toUpperCase();document.querySelectorAll(".cd").forEach(e=>{const s=Math.max(0,Math.round((+e.dataset.e-Date.now())/1000));e.textContent=s?fmtT(s):"Finalizada"});settle();const n=$("n");if(!n)return;
  n.textContent=S.p;$("bf").style.width=S.p/MAX*100+"%";$("open").disabled=S.p<1||busy;$("open10").disabled=S.p<10||busy;$("openall").disabled=S.p<2||busy;$("na").textContent=S.p;
  const s=Math.max(0,Math.ceil((S.t+MS-Date.now())/1000));
  $("nx").textContent=S.p>=MAX?"¡Sobres al máximo!":"Próximo sobre en "+Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+/* ---------- Cuenta en la nube (Firebase, opcional) ---------- */
+let user=null,ct=0,sy=false,stt="";
+const setSt=s=>{stt=s;const e=$("cst");if(e)e.textContent=s};
+function cloudSoon(){if(!user||!window.WCX)return;clearTimeout(ct);ct=setTimeout(cloudPush,1500)}
+async function cloudPush(){if(!user||sy)return;sy=true;
+ try{const ids=Object.keys(S.dirty),dels=Object.keys(S.del),cards=ids.map(i=>S.own[i]).filter(Boolean);
+  await WCX.push(user.uid,{name:S.name,lang:S.lang,p:S.p,t:S.t,seen:S.seen,coins:S.coins,ver:2,upd:Date.now()},cards,dels);
+  ids.forEach(i=>delete S.dirty[i]);dels.forEach(i=>delete S.del[i]);S.cw=S.cw||{};S.cw[user.uid]=Math.max(S.cw[user.uid]||0,...cards.map(c=>c.u||0));saveLocal();setSt("☁️ Sincronizado")}
+ catch(e){console.warn("Sync:",e);setSt("No se pudo sincronizar ("+(e.code||e.message)+")")}
+ sy=false}
+async function cloudLogin(u){
+ if(S.uid&&S.uid!==u.uid)S={ver:2,p:MAX,t:Date.now(),own:{},seen:{},dirty:{},del:{},coins:0,lang:S.lang,name:"Coleccionista"}; // datos locales de otra cuenta: no se mezclan
+ S.uid=u.uid;user=u;setSt("Sincronizando…");
+ try{S.cw=S.cw||{};const w=S.cw[u.uid]||0,r=await WCX.pull(u.uid,w);let mx=w;
+  if(r.profile){S.coins=r.profile.coins??S.coins;S.p=r.profile.p;S.t=r.profile.t;if(r.profile.name)S.name=r.profile.name;S.seen=Object.assign({},r.profile.seen||{},S.seen)}
+  for(const c of r.cards){mx=Math.max(mx,c.u||0);if(S.del[c.id])continue;const o=S.own[c.id];if(!o)S.own[c.id]=c;else{o.cnt=Math.max(o.cnt,c.cnt);o.n=Math.max(o.n,c.n);o.v=Object.assign({},c.v,o.v);o.u=Date.now();S.dirty[c.id]=1}}
+  for(const id in S.own){delete S.seen[id];if(!S.own[id].u){S.own[id].u=Date.now();S.dirty[id]=1}}
+  S.cw[u.uid]=mx;saveLocal();sy=false;await cloudPush()
+ }catch(e){console.warn("Sync:",e);setSt("No se pudo sincronizar ("+(e.code||e.message)+")");toast("Cuenta: "+(e.code||e.message))}
+ startMarket();go()}
+const AE={"auth/invalid-credential":"Correo o contraseña incorrectos.","auth/invalid-email":"Correo no válido.","auth/email-already-in-use":"Ese correo ya tiene cuenta.","auth/weak-password":"La contraseña debe tener al menos 6 caracteres.","auth/too-many-requests":"Demasiados intentos. Espera un poco.","auth/network-request-failed":"Sin conexión.","auth/operation-not-allowed":"El acceso con correo no está activado en Firebase.","auth/unauthorized-domain":"Este dominio no está autorizado en Firebase."};
+async function authDo(a){const e=$("ae").value.trim(),p=$("ap").value;
+ try{if(a==="reset"){if(!e)return toast("Escribe tu correo primero.");await WCX.reset(e);return toast("Si el correo existe, recibirás un enlace para restablecer la contraseña.")}
+  if(!e||!p)return toast("Escribe correo y contraseña.");
+  if(a==="signup")await WCX.signUp(e,p);else await WCX.signIn(e,p)
+ }catch(x){toast(AE[x.code]||"Error: "+(x.code||x.message))}}
+function wcxInit(){WCX.on(u=>{if(u)cloudLogin(u);else{user=null;stt="";stopMarket();go()}})}
+addEventListener("wcx",wcxInit);if(window.WCX)wcxInit();
+const acct=()=>!window.WCX?`<div class="row2"><div class="bd"><b>Cuenta en la nube</b><p>No está configurada. Añade tu configuración de Firebase en <code>FIREBASE_CONFIG</code> (ver README) y podrás iniciar sesión y guardar tu colección online.</p></div></div>`:user?`<div class="row2"><div class="bd"><b>☁️ ${esc(user.email)}</b><p id="cst">${esc(stt)}</p><button class="btn sm" data-a="logout">Cerrar sesión</button></div></div>`:`<div class="row2"><div class="bd" style="flex:1"><b>Inicia sesión para guardar tu colección en la nube</b><div class="tools"><input id="ae" type="email" placeholder="Correo" autocomplete="email"><input id="ap" type="password" placeholder="Contraseña (mín. 6)" autocomplete="current-password"></div><div class="tools"><button class="btn gold sm" data-a="login">Entrar</button><button class="btn sm" data-a="signup">Crear cuenta</button><button class="btn sm" data-a="reset">Olvidé mi contraseña</button></div><p class="sm mu">Sin cuenta, tu progreso queda solo en este navegador. Al entrar, lo que ya tengas aquí se une a tu cuenta.</p></div></div>`;
+/* ---------- Monedas y subastas ---------- */
+const PRECIO=[1,3,8,20,50,120,300]; // monedas de salida según rareza (Común … God)
+const MER={};
+const fmtT=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0"),left=a=>Math.max(0,Math.round((a.endsAt-Date.now())/1000));
+let M=[],MY=[],W=[],unsub=[];const claiming=new Map();
+function startMarket(){stopMarket();const f=n=>(l,e)=>{if(e){toast("Subastas: "+e.code+" (¿reglas de Firestore publicadas?)");return}if(n==="M")M=l;else if(n==="Y")MY=l;else W=l;if(cur==="mercado")go()};
+ unsub=[WCX.market(f("M")),WCX.mine(user.uid,f("Y")),WCX.won(user.uid,f("W"))]}
+function stopMarket(){unsub.forEach(u=>u());unsub=[];M=[];MY=[];W=[]}
+const avail=()=>S.coins-W.reduce((s,a)=>s+a.price,0);
+const msg=t=>`<div class="ph"><span>🔨</span><p class="mu">${t}</p></div>`;
+function aucH(a){const c=a.card,r=RAR[rar(c.n)],v=ver(c,S.lang)[1],t=left(a),me=a.seller===user.uid,min=a.bids?a.price+1:a.price;
+ const st=a.bids?`Puja más alta: <b>${a.price}</b> 🪙 de ${esc(a.topName)} · ${a.bids} pujas`:`Salida: <b>${a.price}</b> 🪙 · sin pujas`;
+ const act=!t?"":me?"Tu carta":a.top===user.uid?"Vas ganando":`<button class="btn sm gold" data-a="bid" data-id="${esc(a.id)}">Pujar ${min} 🪙</button>`;
+ return `<div class="card" style="--rc:${r[1]};cursor:default"><div class="art">${v.i?img(v.i):"📖"}</div><div class="hd"><b class="nm">${esc(v.t)}</b><span class="yr">${r[0]} · de ${esc(a.sellerName)}</span></div><div class="ds">${st}</div><div class="rr"><span class="cd" data-e="${a.endsAt}">${t?fmtT(t):"Finalizada"}</span><span>${act}</span></div></div>`}
+const mg=()=>!window.WCX?msg("Las subastas necesitan Firebase configurado (ver README)."):!user?msg("Inicia sesión en Mi perfil para ver y pujar en subastas."):"";
+MER.subastas=()=>mg()||`<p class="mu">Tienes <b>${S.coins}</b> 🪙 (disponibles para pujar: <b>${avail()}</b>). Duran 5 min y cada puja suma 20 s. El pago se descuenta al ganar.</p><div class="grid">${M.filter(a=>left(a)>0).sort((a,b)=>a.endsAt-b.endsAt).map(aucH).join("")||'<p class="mu">No hay subastas abiertas. Abre una carta de tu colección y pulsa «Subastar».</p>'}</div>`;
+MER.anuncios=()=>mg()||`<p class="mu">Tus cartas en subasta. Al terminar se te abonan las monedas solas; si nadie puja, recibes el precio de salida.</p><div class="grid">${MY.slice().sort((a,b)=>a.endsAt-b.endsAt).map(aucH).join("")||'<p class="mu">No tienes subastas activas.</p>'}</div>`;
+MER.intercambios=()=>ph("🔄","Intercambios","Intercambio directo de cartas entre jugadores.");
+async function sell(id){const c=S.own[id];if(!c)return;if(!user||!window.WCX)return toast("Inicia sesión para subastar (Mi perfil).");
+ const r=rar(c.n),base=PRECIO[r],v=ver(c,S.lang)[1];
+ if(!confirm("¿Subastar «"+v.t+"» ("+RAR[r][0]+")?\nPrecio de salida: "+base+" 🪙. Dura 5 min y cada puja suma 20 s.\nSi nadie puja, recibirás "+base+" 🪙 y la carta saldrá de tu colección."))return;
+ try{await WCX.list({seller:user.uid,sellerName:S.name,card:JSON.parse(JSON.stringify(c)),base,price:base,top:null,topName:"",bids:0,endsAt:Date.now()+300000,sellerDone:false,topDone:false});
+  if(--c.cnt<1){delete S.own[id];S.del[id]=1}else S.dirty[id]=1;
+  save();$("md").classList.remove("show");toast("Carta en subasta durante 5 minutos");TAB.mercado="anuncios";if(location.hash==="#mercado")go();else location.hash="#mercado"
+ }catch(e){toast("No se pudo subastar ("+(e.code||e.message)+")")}}
+async function bid(id){const a=M.find(x=>x.id===id);if(!a)return;if(left(a)<=0)return toast("La subasta ha terminado.");
+ const min=a.bids?a.price+1:a.price;if(avail()<min)return toast("No tienes monedas suficientes (disponibles: "+avail()+").");
+ try{await WCX.bid(id,user.uid,S.name,min);toast("Puja de "+min+" 🪙 realizada (+20 s)")}catch(e){toast(e.message==="stale"?"Alguien pujó antes. Mira el nuevo precio.":"No se pudo pujar ("+(e.code||e.message)+")")}}
+async function settle(){if(!user||!window.WCX)return;const now=Date.now();let ch=0;
+ const one=async(a,f)=>{const k=a.id+f;if(claiming.has(k)&&now-claiming.get(k)<8000)return;claiming.set(k,now);
+  try{await WCX.claim(a.id,f);
+   if(f==="sellerDone"){const g=a.bids?a.price:a.base;S.coins+=g;toast(a.bids?"Subasta vendida por "+g+" 🪙":"Sin pujas: recibes "+g+" 🪙")}
+   else{add(Object.assign({},a.card,{cnt:1,ts:Date.now()}));S.coins-=a.price;toast("¡Has ganado «"+ver(a.card,S.lang)[1].t+"» por "+a.price+" 🪙!")}
+   ch=1;saveLocal()}catch(e){if(e.message!=="done")console.warn("Cobro:",e.code||e.message)}};
+ for(const a of MY)if(a.endsAt<=now)await one(a,"sellerDone");
+ for(const a of W)if(a.endsAt<=now)await one(a,"topDone");
+ if(ch){save();go()}}
 /* ---------- Vistas ---------- */
 const V={},A={},CO={},JG={},AC={};
 const st=(i,v,l)=>`<div class="stat"><span>${i}</span><b>${v}</b><small>${l}</small></div>`;
@@ -230,7 +298,7 @@ V.inicio=()=>{const L=Object.values(S.own),cnt=L.reduce((a,c)=>a+c.cnt,0),best=L
 <h2>Últimas cartas</h2>${rec.length?`<div class="grid">${rec.map(c=>cardH(c)).join("")}</div>`:`<p class="mu">Aún no tienes cartas.</p>`}`};
 const tabs=r=>`<div class="seg">${SUB[r].map(([k,l])=>`<button data-a="tab" data-k="${k}"${TAB[r]===k?' class="on"':""}>${l}</button>`).join("")}</div>`;
 JG.sobres=()=>{const L=Object.values(S.own),best=L.length?RAR[Math.max(...L.map(c=>rar(c.n)))][0]:"—";
- return `<div class="packv"><div class="stack">🎴</div><div class="count"><span id="n">0</span><small> / ${MAX}</small></div><p class="mu">sobres disponibles · 5 cartas por sobre · ${LANGS[S.lang]}</p><div class="bar"><i id="bf"></i></div><p class="mu" id="nx"></p><div class="btns"><button class="btn gold big" data-a="open" data-n="1" id="open">Abrir</button><button class="btn big" data-a="open" data-n="10" id="open10">Abrir 10</button><button class="btn big" data-a="open" data-n="0" id="openall">Abrir todo (<span id="na">0</span>)</button></div><p class="mu sm">La rareza depende de en cuántos idiomas existe el artículo en Wikipedia. Abrir muchos sobres hace varias consultas a Wikipedia a la vez.</p></div><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("⭐",best,"Mejor rareza")}</div>`};
+ return `<div class="packv"><div class="stack">🎴</div><div class="count"><span id="n">0</span><small> / ${MAX}</small></div><p class="mu">sobres disponibles · 5 cartas por sobre · ${LANGS[S.lang]}</p><div class="bar"><i id="bf"></i></div><p class="mu" id="nx"></p><div class="btns"><button class="btn gold big" data-a="open" data-n="1" id="open">Abrir</button><button class="btn big" data-a="open" data-n="10" id="open10">Abrir 10</button><button class="btn big" data-a="open" data-n="0" id="openall">Abrir todo (<span id="na">0</span>)</button></div><p class="mu sm">La rareza depende de en cuántos idiomas existe el artículo en Wikipedia. Abrir muchos sobres hace varias consultas a Wikipedia a la vez. Cada sobre abierto te da 1 🪙.</p></div><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("⭐",best,"Mejor rareza")}</div>`};
 const F={q:"",cat:"",rar:"",lang:"",st:"all",so:"r",lim:60};
 const opt=(a,cur)=>a.map(([k,v])=>`<option value="${k}"${cur===k?" selected":""}>${v}</option>`).join("");
 CO.cartas=()=>`<h1>Colección</h1><div class="tools"><input id="fq" placeholder="Buscar en tu colección…" value="${esc(F.q)}"><select id="fc">${opt([["","Categoría"],...CL.map(c=>[c,c])],F.cat)}</select><select id="fr">${opt([["","Rareza"],...RAR.map((r,i)=>[""+i,r[0]])],F.rar)}</select><select id="fl">${opt([["","Idioma"],...Object.entries(LANGS)],F.lang)}</select><select id="fs">${opt([["all","Todas"],["own","Obtenidas"],["pend","Pendientes (sin obtener)"]],F.st)}</select><select id="fo">${opt([["r","Orden: rareza"],["y","Orden: año"],["a","Orden: nombre"],["d","Orden: recientes"]],F.so)}</select></div><p class="mu sm" id="fp"></p><div class="grid" id="cg"></div><div class="c"><button class="btn" data-a="more" id="fm">Mostrar más</button></div>`;
@@ -264,9 +332,9 @@ JG.juegos=V.combate;JG.eventos=()=>ph("🎉","Eventos","Eventos y temporadas.");
 V.jugar=()=>tabs("jugar")+JG[TAB.jugar]();
 V.coleccion=()=>tabs("coleccion")+CO[TAB.coleccion]();
 A.coleccion=()=>{const f=AC[TAB.coleccion];if(f)f()};
-V.mercado=()=>tabs("mercado")+ph("🏪",{subastas:"Subastas",intercambios:"Intercambios",anuncios:"Mis anuncios"}[TAB.mercado],"Compra, venta e intercambio de cartas entre jugadores. Necesita servidor y cuentas.");
-CO.perfil=()=>{const L=Object.values(S.own);return `<h1>Perfil</h1><div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("☆",Object.keys(S.seen).length,"Pendientes")}</div><h2>Ajustes</h2><div class="tools"><input id="pn" value="${esc(S.name)}" maxlength="30" placeholder="Tu nombre"><select id="pl">${opt(Object.entries(LANGS),S.lang)}</select></div><p class="mu sm">El idioma elige qué versión de Wikipedia se usa para sobres, enciclopedia y cartas. La interfaz está solo en español.</p><h2>Copia de seguridad</h2><div class="tools"><button class="btn" data-a="test">Probar conexión</button><button class="btn" data-a="exp">Exportar JSON</button><button class="btn" data-a="imp">Importar JSON</button><button class="btn" data-a="rst" style="border-color:#a33">Borrar todo</button></div><p class="mu sm">El progreso se guarda solo en este navegador. Exporta una copia si quieres llevarlo a otro dispositivo.</p>`};
-AC.perfil=()=>{$("pn").onchange=e=>{S.name=e.target.value.trim()||"Coleccionista";save()};$("pl").onchange=e=>setLang(e.target.value)};
+V.mercado=()=>tabs("mercado")+MER[TAB.mercado]();
+CO.perfil=()=>{const L=Object.values(S.own);return `<h1>Perfil</h1>${acct()}<div class="stats">${st("🗂️",L.length,"Cartas distintas")}${st("📦",L.reduce((a,c)=>a+c.cnt,0),"Cartas totales")}${st("☆",Object.keys(S.seen).length,"Pendientes")}</div><h2>Ajustes</h2><div class="tools"><input id="pn" value="${esc(S.name)}" maxlength="30" placeholder="Tu nombre"><select id="pl">${opt(Object.entries(LANGS),S.lang)}</select></div><p class="mu sm">El idioma elige qué versión de Wikipedia se usa para sobres, enciclopedia y cartas. La interfaz está solo en español.</p><h2>Copia de seguridad</h2><div class="tools"><button class="btn" data-a="test">Probar conexión</button><button class="btn" data-a="exp">Exportar JSON</button><button class="btn" data-a="imp">Importar JSON</button><button class="btn" data-a="rst" style="border-color:#a33">Borrar todo</button></div><p class="mu sm">El progreso se guarda solo en este navegador. Exporta una copia si quieres llevarlo a otro dispositivo.</p>`};
+AC.perfil=()=>{const ap=$("ap");if(ap)ap.onkeydown=e=>{if(e.key==="Enter")authDo("login")};$("pn").onchange=e=>{S.name=e.target.value.trim()||"Coleccionista";save()};$("pl").onchange=e=>setLang(e.target.value)};
 /* ---------- Navegación y eventos ---------- */
 function setLang(l){S.lang=l;save();$("lg").value=l;go()}
 function go(){let h=location.hash.slice(1);
@@ -276,7 +344,7 @@ function go(){let h=location.hash.slice(1);
  $("app").innerHTML=V[k]();if(A[k])A[k]();ui();window.scrollTo(0,0)}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b)return;const a=b.dataset.a;
  if(a==="det")det(b.dataset.id);else if(a==="open")openPack(+b.dataset.n);
- else if(a==="tab"){TAB[cur]=b.dataset.k;go()}else if(a==="social")social();
+ else if(a==="sell")sell(b.dataset.id);else if(a==="bid")bid(b.dataset.id);else if(a==="login"||a==="signup"||a==="reset")authDo(a);else if(a==="logout")WCX.out();else if(a==="tab"){TAB[cur]=b.dataset.k;go()}else if(a==="social")social();
  else if(a==="soon")toast(b.dataset.t+": próxima implementación (necesita servidor y cuentas).");
  else if(a==="avatar"){TAB.coleccion="perfil";if(location.hash==="#coleccion")go();else location.hash="#coleccion"}
  else if(a==="more"){F.lim+=60;cgrid()}else if(a==="esrch")esearch(true);else if(a==="emore")esearch(false);
@@ -284,10 +352,10 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(!b
  else if(a==="exp"){const l=document.createElement("a");l.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:"application/json"}));l.download="wikicartas-backup.json";l.click()}
  else if(a==="test"){const t0=Date.now();fetch("https://"+S.lang+".wikipedia.org/w/api.php?action=query&meta=siteinfo&format=json&origin=*").then(r=>toast("Wikipedia respondió HTTP "+r.status+" en "+(Date.now()-t0)+" ms")).catch(e=>toast("Sin respuesta de Wikipedia: "+e.message))}
  else if(a==="imp")$("pf").click();
- else if(a==="rst"){if(confirm("¿Borrar toda tu colección y progreso? Exporta una copia antes.")){S={ver:2,p:MAX,t:Date.now(),own:{},seen:{},lang:S.lang,name:"Coleccionista"};save();go()}}});
+ else if(a==="rst"){if(confirm("¿Borrar toda tu colección y progreso? Exporta una copia antes. Si tienes sesión iniciada, la copia de la nube no se borra.")){S={ver:2,p:MAX,t:Date.now(),own:{},seen:{},dirty:{},del:{},coins:0,lang:S.lang,name:"Coleccionista"};save();go()}}});
 $("pf").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j.own)throw 0;
  for(const id in j.own){const o=S.own[id],n=j.own[id];if(!o)S.own[id]=n;else{o.cnt=Math.max(o.cnt,n.cnt);o.v=Object.assign({},n.v,o.v)}}
- Object.assign(S.seen,j.seen||{});for(const id in S.own)delete S.seen[id];save();toast("Copia importada");go()}catch(_){toast("Archivo no válido")}};r.readAsText(f);e.target.value=""};
+ for(const id in j.own){S.own[id].u=Date.now();S.dirty[id]=1}Object.assign(S.seen,j.seen||{});for(const id in S.own)delete S.seen[id];save();toast("Copia importada");go()}catch(_){toast("Archivo no válido")}};r.readAsText(f);e.target.value=""};
 $("all").onclick=()=>document.querySelectorAll("#row .flip").forEach(f=>f.classList.add("open"));
 $("cl").onclick=()=>{$("ov").classList.remove("show");go()};
 $("mc").onclick=()=>$("md").classList.remove("show");
@@ -295,6 +363,38 @@ $("md").onclick=e=>{if(e.target===$("md"))$("md").classList.remove("show")};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("md").classList.remove("show")});
 $("lg").innerHTML=opt(Object.entries(LANGS),S.lang);$("lg").onchange=e=>setLang(e.target.value);
 addEventListener("hashchange",go);go();setInterval(ui,1000);
+</script>
+<script>
+// Pega aquí la configuración de TU proyecto de Firebase (ver README). Mientras tenga los valores de ejemplo, el juego funciona solo en local.
+window.FIREBASE_CONFIG={apiKey:"TU_API_KEY",authDomain:"TU_PROYECTO.firebaseapp.com",projectId:"TU_PROYECTO",appId:"TU_APP_ID"};
+</script>
+<script type="module">
+const C=window.FIREBASE_CONFIG;
+if(C&&C.apiKey&&!/^TU_/.test(C.apiKey)){try{
+ const B="https://www.gstatic.com/firebasejs/10.14.1/";
+ const [A,F,U]=await Promise.all([import(B+"firebase-app.js"),import(B+"firebase-firestore.js"),import(B+"firebase-auth.js")]);
+ const app=A.initializeApp(C),auth=U.getAuth(app),db=F.getFirestore(app),enc=encodeURIComponent,au=dc=>{const d=dc.data();return{...d,id:dc.id,endsAt:d.endsAt.toMillis()}};
+ window.WCX={
+  on:cb=>U.onAuthStateChanged(auth,cb),
+  signUp:(e,p)=>U.createUserWithEmailAndPassword(auth,e,p),
+  signIn:(e,p)=>U.signInWithEmailAndPassword(auth,e,p),
+  reset:e=>U.sendPasswordResetEmail(auth,e),
+  out:()=>U.signOut(auth),
+  market:cb=>F.onSnapshot(F.query(F.collection(db,"auctions"),F.where("endsAt",">",F.Timestamp.fromMillis(Date.now()-120000))),s=>cb(s.docs.map(au)),e=>cb(null,e)),
+  mine:(uid,cb)=>F.onSnapshot(F.query(F.collection(db,"auctions"),F.where("seller","==",uid),F.where("sellerDone","==",false)),s=>cb(s.docs.map(au)),e=>cb(null,e)),
+  won:(uid,cb)=>F.onSnapshot(F.query(F.collection(db,"auctions"),F.where("top","==",uid),F.where("topDone","==",false)),s=>cb(s.docs.map(au)),e=>cb(null,e)),
+  list:a=>F.addDoc(F.collection(db,"auctions"),{...a,endsAt:F.Timestamp.fromMillis(a.endsAt)}),
+  bid:(id,uid,name,min)=>F.runTransaction(db,async t=>{const r=F.doc(db,"auctions",id),d=(await t.get(r)).data();
+   if(!d||d.endsAt.toMillis()<=Date.now()||(d.bids?d.price+1:d.price)!==min||d.top===uid)throw new Error("stale");
+   t.update(r,{price:min,top:uid,topName:name,bids:d.bids+1,endsAt:F.Timestamp.fromMillis(d.endsAt.toMillis()+20000)})}),
+  claim:(id,f)=>F.runTransaction(db,async t=>{const r=F.doc(db,"auctions",id),s=await t.get(r);if(!s.exists()||s.data()[f])throw new Error("done");t.update(r,{[f]:true})}),
+  async pull(uid,since){const [pd,qs]=await Promise.all([F.getDoc(F.doc(db,"users",uid)),F.getDocs(F.query(F.collection(db,"users",uid,"cards"),F.where("u",">",since)))]);return{profile:pd.exists()?pd.data():null,cards:qs.docs.map(d=>d.data())}},
+  async push(uid,profile,cards,dels){await F.setDoc(F.doc(db,"users",uid),profile,{merge:true});
+   const ops=[...cards.map(c=>["s",c]),...(dels||[]).map(i=>["d",i])];
+   for(let i=0;i<ops.length;i+=400){const b=F.writeBatch(db);ops.slice(i,i+400).forEach(([k,x])=>k==="s"?b.set(F.doc(db,"users",uid,"cards",enc(x.id)),x):b.delete(F.doc(db,"users",uid,"cards",enc(x))));await b.commit()}}
+ };
+ dispatchEvent(new Event("wcx"));
+}catch(e){console.warn("Firebase no disponible:",e)}}
 </script>
 </body>
 </html>
